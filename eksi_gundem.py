@@ -22,7 +22,7 @@ class EksiGundem:
             soup = BeautifulSoup(str(*gundem), "lxml")
             return soup
 
-    def sayfa(self, sayfa_no, url, kontrol):
+    def sayfa_getir(self, sayfa_no, url, kontrol):
         if kontrol != None:
             sayfa = 0
             while True:
@@ -38,53 +38,47 @@ class EksiGundem:
             print(Fore.GREEN + "\nYORUMLAR\n")
             print(self.veri(None, soup.get_text()))
             print(Fore.RED + "Sayfa:", sayfa_no, "/", self.sayfa_sayisi)
-            print(Fore.YELLOW + "Gündem başlıklarına gitmek için:(g)")
+
+            print(Fore.YELLOW + "Gündem başlıklarını görüntülemek için:(g)")
             no = input(Fore.BLUE + "Gitmek istediğiniz sayfa no:")
             if no == "g":
-                print(Fore.CYAN + "Gündem başlıklarına dönülüyor.....")
-                self.gundem()
-            self.sayfa(no, url, None)
+                self.main()
+            elif no.isdigit():
+                self.sayfa_getir(no, url, None)
+            else:
+                print("Hata!Ulaşmak istediğiniz sayfa no yok.")
+                self.main()
 
     def entry(self, url):
         soup = self.veri(url, None)
         print(Fore.GREEN + "\nYORUMLAR\n")
         print(self.veri(None, soup.get_text()))
-        print(Fore.RED + "Sayfa:", 1, "/", self.sayfa(0, url, 0))
+        print(Fore.RED + "Sayfa:", 1, "/", self.sayfa_getir(0, url, 0))
 
-        try:
-            print(Fore.YELLOW + "Gündem başlıklarına gitmek için:(g)")
-            no = input(Fore.BLUE + "Gitmek istediğiniz sayfa no:")
-            if no == "g":
-                print(Fore.CYAN + "Gündem başlıklarına dönülüyor.....")
-                self.gundem()
-            self.sayfa(no, url, None)
-        except urllib.error.URLError:
-            print(Fore.RED + "Hata!Ulaşmak istediğiniz sayfa no yok.")
-            print(Fore.CYAN + "Gündem başlıklarına dönülüyor.....")
-            self.gundem()
+        print(Fore.YELLOW + "Gündem başlıklarını görüntülemek için:(g)")
+        no = input(Fore.BLUE + "Gitmek istediğiniz sayfa no:")
+        if no == "g":
+            self.main()
+        elif no.isdigit():
+            self.sayfa_getir(no, url, None)
+        else:
+            print("Hata!Ulaşmak istediğiniz sayfa no yok.")
+            self.main()
 
-    def gundem(self):
-        url = "https://eksisozluk.com/"
-        sayfa = urllib.request.urlopen(url)
+    def gundem(self, baslik_sayi):
+        anasayfa_url = "https://eksisozluk.com/"
+        sayfa = urllib.request.urlopen(anasayfa_url)
         soup = BeautifulSoup(sayfa, "html.parser")
         gundem = soup.find_all("ul", {"class": "topic-list partial"})
         i = 1
         basliklar = {}
 
-        print(Fore.YELLOW + "Programdan çıkmak için:(ç)")
-        baslik_sayi = input(Fore.WHITE + "Kaç gündem başlığı görüntülensin?: ")
-        if baslik_sayi == "ç":
-            print("Programdan çıkılıyor...")
-            sys.exit(0)
-        print(Fore.RED + "\nGÜNDEM")
-        baslik_sayi = int(baslik_sayi)
-
         for ul in gundem:
             for li in ul.find_all("li"):
                 for baslik in li.find_all("a"):
-                    url = "https://eksisozluk.com" + baslik.get("href")
+                    url = anasayfa_url + baslik.get("href")
                     if baslik_sayi > 0:
-                        basliklar[i] = "https://eksisozluk.com" + baslik.get("href")
+                        basliklar[i] = anasayfa_url + baslik.get("href")
                         print(Fore.GREEN + "\n", i, ".) ", baslik.text)
                         i += 1
                         baslik_sayi -= 1
@@ -94,10 +88,24 @@ class EksiGundem:
             self.entry(basliklar[no])
         except KeyError:
             print(Fore.RED + "Girdiğiniz no değerine ait başlık bulanamadı!")
-            print(Fore.CYAN + "Gündem başlıklarına dönülüyor.....")
-            self.gundem()
+            self.main()
+        except BaseException:
+            print(Fore.RED + "Girdiğiniz no değerine ait başlık bulanamadı!")
+            self.main()
+
+    def main(self):
+        print(Fore.YELLOW + "Programdan çıkmak için:(ç)")
+        baslik_sayi = input(Fore.WHITE + "Kaç gündem başlığı görüntülensin?: ")
+        if baslik_sayi == "ç":
+            print("Programdan çıkılıyor...")
+            sys.exit(0)
+        elif baslik_sayi.isdigit():
+            print(Fore.RED + "\nGÜNDEM")
+            self.gundem(int(baslik_sayi))
+        print(Fore.RED + "Hata!.Geçersiz bir değer girdiniz.")
+        self.main()
 
 
 if __name__ == "__main__":
     eksi = EksiGundem()
-    eksi.gundem()
+    eksi.main()
