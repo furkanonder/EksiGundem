@@ -106,6 +106,6 @@ class EksiGundem:
         self.main()
 
 
-if __name__ == "__main__":
+def eksi():
     eksi = EksiGundem()
     eksi.main()
