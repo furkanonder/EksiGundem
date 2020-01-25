@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import urllib.request
 
@@ -109,3 +110,6 @@ class EksiGundem:
 def eksi():
     eksi = EksiGundem()
     eksi.main()
+
+if __name__ == "__main__":
+	eksi()
