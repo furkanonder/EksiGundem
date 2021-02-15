@@ -16,7 +16,7 @@ def get_long_description():
 
 setup(
     name="eksi",
-    version="0.0.1",
+    version="0.0.2",
     description="Komut satırında Ekşisözlük!",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
@@ -30,7 +30,7 @@ setup(
     packages=[],
     zip_safe=False,
     include_package_data=True,
-    install_requires=["beautifulsoup4", "bs4", "colorama", "lxml"],
+    install_requires=["bs4", "lxml"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

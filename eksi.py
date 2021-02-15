@@ -1,115 +1,122 @@
-#!/usr/bin/env python3
 import sys
 import urllib.request
 
 from bs4 import BeautifulSoup
-from colorama import Fore
 
 
-class EksiGundem:
+class Eksi:
     def __init__(self):
-        self.sayfa_sayisi = 0
+        self.home_page = "https://eksisozluk.com/"
+        self.page_num = 1
+        self.entries = []
+        self.colors = dict(
+            red="\033[31m",
+            green="\033[32m",
+            yellow="\033[33m",
+            blue="\033[34m",
+            magenta="\033[35m",
+            cyan="\033[36m",
+            beige="\033[37m",
+            reset="\033[0m",
+        )
 
-    def veri(self, url, sayfa_veri):
-        if sayfa_veri != None:
-            satirlar = (satir.strip() for satir in sayfa_veri.splitlines())
-            blok = (blok.strip() for satir in satirlar for blok in satir.split("  "))
-            metin = "\n".join(parcala for parcala in blok if parcala)
-            return Fore.WHITE + metin
-        else:
-            sayfa = urllib.request.urlopen(url)
-            soup = BeautifulSoup(sayfa, "html.parser")
-            gundem = soup.find_all("ul", {"id": "entry-item-list"})
-            soup = BeautifulSoup(str(*gundem), "lxml")
-            return soup
+    def c_print(self, color, *args):
+        print(self.colors[color], *args)
 
-    def sayfa_getir(self, sayfa_no, url, kontrol):
-        if kontrol != None:
-            sayfa = 0
-            while True:
-                try:
-                    sayfa += 1
-                    soup = self.veri(url + "&p=" + str(sayfa), None)
-                except urllib.error.URLError:
-                    self.sayfa_sayisi = sayfa - 1
-                    return sayfa - 1
-                    break
-        else:
-            soup = self.veri(url + "&p=" + str(sayfa_no), None)
-            print(Fore.GREEN + "\nYORUMLAR\n")
-            print(self.veri(None, soup.get_text()))
-            print(Fore.RED + "Sayfa:", sayfa_no, "/", self.sayfa_sayisi)
+    def chunk(self, l):
+        for i in range(0, len(l), 3):
+            yield l[i : i + 3]
 
-            print(Fore.YELLOW + "Gündem başlıklarını görüntülemek için:(g)")
-            no = input(Fore.BLUE + "Gitmek istediğiniz sayfa no:")
-            if no == "g":
-                self.main()
-            elif no.isdigit():
-                self.sayfa_getir(no, url, None)
-            else:
-                print("Hata!Ulaşmak istediğiniz sayfa no yok.")
-                self.main()
+    def parser(self, url):
+        page = urllib.request.urlopen(url)
+        soup = BeautifulSoup(page, "html.parser")
+        agenda = soup.find_all("ul", {"id": "entry-item-list"})
+        soup = BeautifulSoup(str(*agenda), "lxml")
+        lines = [line.strip() for line in soup.get_text().splitlines()]
+        result = list(filter(lambda line: line != "", lines))
+        return self.chunk(result)
 
-    def entry(self, url):
-        soup = self.veri(url, None)
-        print(Fore.GREEN + "\nYORUMLAR\n")
-        print(self.veri(None, soup.get_text()))
-        print(Fore.RED + "Sayfa:", 1, "/", self.sayfa_getir(0, url, 0))
+    def reader(self, url):
+        chunk = self.parser(url)
+        while True:
+            try:
+                c = next(chunk)
+                self.c_print("beige", c[0])
+                self.c_print("cyan", c[1], c[2])
+            except StopIteration:
+                break
 
-        print(Fore.YELLOW + "Gündem başlıklarını görüntülemek için:(g)")
-        no = input(Fore.BLUE + "Gitmek istediğiniz sayfa no:")
-        if no == "g":
-            self.main()
-        elif no.isdigit():
-            self.sayfa_getir(no, url, None)
-        else:
-            print("Hata!Ulaşmak istediğiniz sayfa no yok.")
-            self.main()
+    def get_entry(self, url, entry_baslik):
+        self.c_print("green", entry_baslik)
+        self.reader(url)
+        while True:
+            self.c_print("green", "Gündem başlıklarını görüntülemek için:(g)")
+            try:
+                self.c_print(
+                    "blue",
+                    "Sonraki sayfa için (s):\n Önceki sayfa için (o):\n Programdan çıkmak için (c):",
+                )
+                cmd = input(">>> ")
+                if cmd == "g":
+                    self.get_agenda()
+                elif cmd == "s":
+                    try:
+                        self.reader(url + "&p=" + str(self.page_num))
+                        self.page_num += 1
+                    except urllib.error.HTTPError:
+                        self.c_print("red", "Şu an en son sayfadasınız!")
+                        self.page_num -= 1
+                elif cmd == "o" and self.page_num > 1:
+                    self.page_num -= 1
+                    self.reader(url + "&p=" + str(self.page_num))
+                elif cmd == "c":
+                    sys.exit(0)
+                else:
+                    self.get_entry(url, entry_baslik)
+            except ValueError:
+                self.c_print("red", "Hata!Geçersiz bir değer girdiniz.")
 
-    def gundem(self, baslik_sayi):
-        anasayfa_url = "https://eksisozluk.com/"
-        sayfa = urllib.request.urlopen(anasayfa_url)
-        soup = BeautifulSoup(sayfa, "html.parser")
-        gundem = soup.find_all("ul", {"class": "topic-list partial"})
-        i = 1
-        basliklar = {}
+    def read_entry(self):
+        while True:
+            try:
+                self.c_print("magenta", "Programdan çıkmak için (c):")
+                self.c_print("blue", "Okumak istediğiniz başlık numarası: ")
+                cmd = input(">>> ")
+                if cmd == "c":
+                    sys.exit(0)
+                entry_url = self.home_page + self.entries[int(cmd)].get("href")
+                self.get_entry(entry_url, self.entries[int(cmd)].text)
+                break
+            except (ValueError, IndexError) as error:
+                self.c_print("red", "Hata!Geçersiz bir değer girdiniz.")
+            except KeyboardInterrupt:
+                break
 
-        for ul in gundem:
+    def get_agenda(self):
+        page = urllib.request.urlopen(self.home_page)
+        soup = BeautifulSoup(page, "html.parser")
+        agenda = soup.find_all("ul", {"class": "topic-list partial"})
+        self.entries = []
+        self.page_num = 1
+
+        for ul in agenda:
             for li in ul.find_all("li"):
-                for baslik in li.find_all("a"):
-                    url = anasayfa_url + baslik.get("href")
-                    if baslik_sayi > 0:
-                        basliklar[i] = anasayfa_url + baslik.get("href")
-                        print(Fore.GREEN + "\n", i, ".) ", baslik.text)
-                        i += 1
-                        baslik_sayi -= 1
+                for entry in li.find_all("a"):
+                    self.entries.append(entry)
 
-        try:
-            no = int(input(Fore.BLUE + "Okumak istediğiniz başlık no: "))
-            self.entry(basliklar[no])
-        except KeyError:
-            print(Fore.RED + "Girdiğiniz no değerine ait başlık bulanamadı!")
-            self.main()
-        except BaseException:
-            print(Fore.RED + "Girdiğiniz no değerine ait başlık bulanamadı!")
-            self.main()
+        self.c_print("reset", "")
+        for index in range(1, len(self.entries)):
+            print(index, "-", self.entries[index].text)
+        self.read_entry()
 
     def main(self):
-        print(Fore.YELLOW + "Programdan çıkmak için:(ç)")
-        baslik_sayi = input(Fore.WHITE + "Kaç gündem başlığı görüntülensin?: ")
-        if baslik_sayi == "ç":
-            print("Programdan çıkılıyor...")
-            sys.exit(0)
-        elif baslik_sayi.isdigit():
-            print(Fore.RED + "\nGÜNDEM")
-            self.gundem(int(baslik_sayi))
-        print(Fore.RED + "Hata!.Geçersiz bir değer girdiniz.")
-        self.main()
+        self.get_agenda()
 
 
 def eksi():
-    eksi = EksiGundem()
+    eksi = Eksi()
     eksi.main()
 
+
 if __name__ == "__main__":
-	eksi()
+    eksi()
